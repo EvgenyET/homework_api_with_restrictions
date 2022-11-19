@@ -3,8 +3,7 @@ from rest_framework import serializers, status
 from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 
-from advertisements.models import Advertisement, Favorites
-
+from advertisements.models import Advertisement, Favorites, AdvertisementStatusChoices
 
 class UserSerializer(serializers.ModelSerializer):
     """Serializer для пользователя."""
@@ -40,11 +39,11 @@ class AdvertisementSerializer(serializers.ModelSerializer):
         return super().create(validated_data)
 
     def validate(self, data):
-        """Метод для валидации. Вызывается при создании и обновлении."""
-        user = self.context['request'].user
-        ads = Advertisement.objects.select_related().filter(creator__username=user, status='OPEN')
-        if len(ads) == 10:
-            raise ValidationError({'error': 'Не более 10 открытых объявлений'})
+
+        advs_open_count = self.Meta.model.objects.filter(creator=self.context["request"].user,
+                                                    status=AdvertisementStatusChoices.OPEN).count()
+        if advs_open_count > 9 and self.context["request"].method == "POST" or (self.context["request"].method == "PATCH" and data.get('status') == "OPEN"):
+            raise ValidationError('Нельзя создать больше 10 объявлений')
 
         return data
 
